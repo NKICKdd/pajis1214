@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>역할 랜덤 배정기 & 미션 하달</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #000;
+      color: #ddd;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.2rem;
+      min-width: 360px;
+    }
+    #container {
+      background: rgba(25, 25, 35, 0.9);
+      padding: 40px 40px 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 25px #111 inset;
+      max-width: 900px;
+      width: 100%;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #mainContent {
+      width: 100%;
+      max-width: 800px;
+      text-align: center;
+    }
+    #mainContent input, #mainContent button {
+      padding: 12px 18px;
+      margin: 8px 6px 16px 0;
+      font-size: 1.2rem;
+      border-radius: 6px;
+      border: 1px solid #555;
+      background: rgba(40, 40, 50, 0.9);
+      color: #eee;
+      transition: background-color 0.3s ease;
+    }
+    #mainContent input::placeholder {
+      color: #999;
+    }
+    #mainContent input:focus, #mainContent button:hover {
+      background-color: #5a5a7a;
+      border-color: #7a7abc;
+      outline: none;
+      color: white;
+    }
+    #mainContent button {
+      cursor: pointer;
+      background-color: rgba(50, 50, 70, 0.9);
+      border: 1px solid #666;
+    }
+    #result {
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 1.3rem;
+      min-height: 2em;
+    }
+
+    hr.section-divider {
+      width: 100%;
+      border: none;
+      border-top: 1px solid #444;
+      margin: 30px 0 20px;
+    }
+
+    /* 관리자 메뉴 아래에 가로 배치 */
+    #adminPanel {
+      width: 100%;
+      max-width: 900px;
+      background: rgba(25, 25, 35, 0.85);
+      border-radius: 10px;
+      padding: 20px 30px;
+      box-sizing: border-box;
+      color: #eee;
+      display: none;
+      font-size: 1.1rem;
+    }
+    #adminPanel h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-weight: 700;
+      border-bottom: 2px solid #555;
+      padding-bottom: 8px;
+    }
+    #adminPanel input, #adminPanel button {
+      padding: 10px 16px;
+      margin: 6px 6px 14px 0;
+      font-size: 1.1rem;
+      border-radius: 6px;
+      border: 1px solid #555;
+      background: rgba(40, 40, 50, 0.9);
+      color: #eee;
+      transition: background-color 0.3s ease;
+    }
+    #adminPanel input::placeholder {
+      color: #aaa;
+    }
+    #adminPanel input:focus, #adminPanel button:hover {
+      background-color: #5a5a7a;
+      border-color: #7a7abc;
+      outline: none;
+      color: white;
+    }
+    #adminPanel button {
+      cursor: pointer;
+      background-color: rgba(50, 50, 70, 0.9);
+      border: 1px solid #666;
+    }
+    #roleList div {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 1.1rem;
+    }
+    #roleList span.role-name {
+      flex: 1;
+      font-weight: 600;
+      word-break: break-word;
+    }
+    #roleList button {
+      min-width: 36px;
+      margin-left: 6px;
+      background-color: rgba(70, 70, 90, 0.9);
+      border: 1px solid #888;
+      color: #ccc;
+      font-size: 1.1rem;
+    }
+    button.delete-btn {
+      background-color: #b14a4a;
+      border-color: #7a2c2c;
+      color: #eee;
+      min-width: 80px;
+      font-size: 1.1rem;
+    }
+    button.delete-btn:hover {
+      background-color: #7a2c2c;
+    }
+    #addCountControls {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 10px;
+    }
+    #addCountControls input {
+      width: 60px;
+      text-align: center;
+      margin: 0 8px;
+      background: rgba(40, 40, 50, 0.9);
+      color: #eee;
+      font-size: 1.1rem;
+    }
+    #assignedList {
+      white-space: pre-wrap;
+      margin-top: 15px;
+      background:#22283d;
+      padding: 15px;
+      border-radius: 6px;
+      color: #eee;
+      font-size: 1.1rem;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    /* 모달 스타일 */
+    #roleModal, #alertModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(10, 10, 20, 0.85);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    #roleModal > div, #alertModal > div {
+      background: #22283d;
+      padding: 35px 40px;
+      border-radius: 14px;
+      text-align: center;
+      max-width: 360px;
+      box-shadow: 0 0 30px #0d1026;
+      color: #eee;
+      font-weight: 700;
+      font-size: 1.3rem;
+      line-height: 1.4;
+    }
+    #roleModal button, #alertModal button {
+      padding: 14px 32px;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 10px;
+      background-color: #4a5199;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      margin-top: 24px;
+    }
+    #roleModal button:hover, #alertModal button:hover {
+      background-color: #676fd4;
+    }
+
+    /* 미션 하달 섹션 */
+    #missionSection {
+      margin-top: 30px;
+      text-align: left;
+    }
+    #missionSection input {
+      width: 40%;
+      margin-right: 10px;
+    }
+    #missionSection input#missionToText {
+      width: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="mainContent">
+      <h1>🎭</h1>
+
+      <input type="text" id="nameInput" placeholder="이름 입력" />
+      <button onclick="assignRole()">역할 받기</button>
+      <div id="result"></div>
+
+      <hr class="section-divider" />
+      <h3>🔐 관리자 로그인</h3>
+      <input type="password" id="adminPass" placeholder="비밀번호 입력" />
+      <button onclick="checkPassword()">접속</button>
+    </div>
+
+    <div id="adminPanel">
+      <h2>👩‍🏫 관리자 메뉴</h2>
+
+      <div>
+        <input type="text" id="newRole" placeholder="새 역할 입력" onkeydown="if(event.key==='Enter'){ addRole(); }" />
+        <div id="addCountControls">
+          <button onclick="changeAddCount(-1)">-</button>
+          <input type="number" id="addCount" value="1" min="1" />
+          <button onclick="changeAddCount(1)">+</button>
+        </div>
+        <button onclick="addRole()">➕ 역할 추가</button>
+      </div>
+
+      <hr class="section-divider" />
+
+      <div id="roleList" style="margin-top: 10px;"></div>
+
+      <hr class="section-divider" />
+
+      <div>
+        <button onclick="resetAll()">🔄 역할 초기화</button>
+        <button onclick="showAssigned()" style="margin-left: 10px;">👥 배정 현황 보기</button>
+        <button onclick="refreshAll()" style="margin-left: 10px;">🔄 새로고침</button>
+      </div>
+
+      <pre id="assignedList"></pre>
+
+      <!-- 미션 하달 섹션 -->
+      <hr class="section-divider" />
+      <div id="missionSection">
+        <h3>🚨 실시간 미션 하달</h3>
+        <input type="text" id="missionToName" placeholder="학생 이름" />
+        <input type="text" id="missionToText" placeholder="미션 내용" />
+        <button onclick="sendLiveMission()">미션 보내기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 역할 확인 모달 -->
+  <div id="roleModal">
+    <div>
+      <h2 id="modalTitle">🎭 역할 확인</h2>
+      <p id="modalText"></p>
+      <button onclick="closeModal()">확인</button>
+    </div>
+  </div>
+
+  <!-- 알림 모달 -->
+  <div id="alertModal">
+    <div>
+      <p id="alertMessage"></p>
+      <button onclick="closeAlertModal()">확인</button>
+    </div>
+  </div>
+
+<script>
+  const SUPABASE_URL = 'https://wrupjvdjcxbmayaymhnr.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndydXBqdmRqY3hibWF5YXltaG5yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzNDQ2NDYsImV4cCI6MjA2NjkyMDY0Nn0.K9CwWmz8Awl_5RuhlvotkuG55T7zfxmLZJ1GsCeSLmE';
+  const ADMIN_PASSWORD = 'teacher123';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  document.getElementById('nameInput').addEventListener('keydown', e => {
+    if(e.key === 'Enter') assignRole();
+  });
+
+  // 관리자 비밀번호 입력창 엔터키 이벤트 추가
+  document.getElementById('adminPass').addEventListener('keydown', e => {
+    if(e.key === 'Enter') checkPassword();
+  });
+
+  function changeAddCount(delta) {
+    const input = document.getElementById('addCount');
+    let val = parseInt(input.value) || 1;
+    val = Math.max(1, val + delta);
+    input.value = val;
+  }
+
+  function showRoleModal(name, role) {
+    document.getElementById('modalTitle').textContent = `${name}님의 역할`;
+    document.getElementById('modalText').textContent = role;
+    document.getElementById('roleModal').style.display = 'flex';
+  }
+  function closeModal() {
+    document.getElementById('roleModal').style.display = 'none';
+  }
+
+  function showAlertModal(message) {
+    document.getElementById('alertMessage').textContent = message;
+    document.getElementById('alertModal').style.display = 'flex';
+  }
+  function closeAlertModal() {
+    document.getElementById('alertModal').style.display = 'none';
+  }
+
+  async function assignRole() {
+    const name = document.getElementById('nameInput').value.trim();
+    if (!name) {
+      showAlertModal('이름을 입력하세요.');
+      return;
+    }
+
+    // 중복 이름 확인
+    const { data: dupCheck } = await supabaseClient
+      .from('roles')
+      .select('*')
+      .eq('assigned_to', name)
+      .maybeSingle();
+    if (dupCheck) {
+      showAlertModal(`${name}님은 이미 역할을 받았습니다.`);
+      return;
+    }
+
+    const { data: roles } = await supabaseClient
+      .from('roles')
+      .select('*')
+      .is('assigned_to', null);
+
+    if (!roles || roles.length === 0) {
+      showAlertModal('배정 가능한 역할이 없습니다.');
+      return;
+    }
+
+    const random = roles[Math.floor(Math.random() * roles.length)];
+
+    await supabaseClient
+      .from('roles')
+      .update({ assigned_to: name })
+      .eq('id', random.id);
+
+    showRoleModal(name, random.name);
+  }
+
+  function checkPassword() {
+    const pass = document.getElementById('adminPass').value;
+    if (pass === ADMIN_PASSWORD) {
+      document.getElementById('adminPanel').style.display = 'block';
+      updateRoleList();
+      showAssigned();
+    } else {
+      showAlertModal('비밀번호가 틀렸습니다.');
+    }
+  }
+
+  async function addRole() {
+    const role = document.getElementById('newRole').value.trim();
+    const count = parseInt(document.getElementById('addCount').value) || 1;
+    if (!role || count < 1) {
+      showAlertModal('역할명과 개수를 입력하세요.');
+      return;
+    }
+    const toAdd = Array(count).fill().map(() => ({ name: role }));
+    await supabaseClient.from('roles').insert(toAdd);
+    document.getElementById('newRole').value = '';
+    document.getElementById('addCount').value = 1;
+    updateRoleList();
+  }
+
+  async function updateRoleList() {
+    const { data: roles } = await supabaseClient.from('roles').select('*');
+    const grouped = {};
+    roles.forEach(r => {
+      if (!grouped[r.name]) grouped[r.name] = { total: 0, assigned: 0, assignedTo: [], ids: [] };
+      grouped[r.name].total++;
+      if (r.assigned_to) {
+        grouped[r.name].assigned++;
+        grouped[r.name].assignedTo.push(r.assigned_to);
+      }
+      grouped[r.name].ids.push(r.id);
+    });
+
+    const container = document.getElementById('roleList');
+    container.innerHTML = '';
+    Object.entries(grouped).forEach(([role, info]) => {
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <span class="role-name">${role} - ${info.total}명 ${info.assignedTo.length ? `(배정: ${info.assignedTo.join(', ')})` : ''}</span>
+        <button onclick="adjustCount('${role}', -1)">-</button>
+        <button onclick="adjustCount('${role}', 1)">+</button>
+        <button class="delete-btn" onclick="deleteRole('${role}')">삭제</button>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  async function adjustCount(role, delta) {
+    const { data } = await supabaseClient.from('roles').select('*').eq('name', role);
+    const assigned = data.filter(r => r.assigned_to).length;
+    const unassigned = data.filter(r => !r.assigned_to);
+    if (delta > 0) {
+      const toAdd = Array(delta).fill().map(() => ({ name: role }));
+      await supabaseClient.from('roles').insert(toAdd);
+    } else {
+      if (unassigned.length < Math.abs(delta)) {
+        showAlertModal('줄일 수 없습니다. 배정된 역할은 삭제할 수 없습니다.');
+        return;
+      }
+      const ids = unassigned.slice(0, Math.abs(delta)).map(r => r.id);
+      await supabaseClient.from('roles').delete().in('id', ids);
+    }
+    updateRoleList();
+    showAssigned();
+  }
+
+  async function deleteRole(role) {
+    if (!confirm(`'${role}' 역할을 모두 삭제할까요?`)) return;
+    await supabaseClient.from('roles').delete().eq('name', role);
+    updateRoleList();
+    showAssigned();
+  }
+
+  async function resetAll() {
+    if (!confirm('모든 역할 배정을 초기화할까요?')) return;
+    await supabaseClient.from('roles').update({ assigned_to: null }).neq('assigned_to', null);
+    updateRoleList();
+    document.getElementById('assignedList').textContent = '';
+  }
+
+  async function showAssigned() {
+    const { data } = await supabaseClient.from('roles').select('*').not('assigned_to', 'is', null);
+    const out = data.map(r => `${r.assigned_to} → ${r.name}`).join('\n');
+    document.getElementById('assignedList').textContent = out || '배정된 역할 없음.';
+  }
+
+  function refreshAll() {
+    updateRoleList();
+    showAssigned();
+  }
+
+  // === 실시간 미션 하달 기능 ===
+
+  async function sendLiveMission() {
+    const name = document.getElementById('missionToName').value.trim();
+    const mission = document.getElementById('missionToText').value.trim();
+    if (!name || !mission) {
+      showAlertModal('학생 이름과 미션 내용을 입력하세요.');
+      return;
+    }
+    // 학생 역할 배정 여부 확인
+    const { data: assigned } = await supabaseClient
+      .from('roles')
+      .select('*')
+      .eq('assigned_to', name)
+      .maybeSingle();
+
+    if (!assigned) {
+      showAlertModal(`"${name}" 학생은 아직 역할을 받지 않았습니다.`);
+      return;
+    }
+
+    await supabaseClient.from('live_missions').insert([{ assigned_to: name, mission_text: mission }]);
+
+    showAlertModal(`"${name}" 학생에게 미션을 보냈습니다.`);
+    document.getElementById('missionToName').value = '';
+    document.getElementById('missionToText').value = '';
+  }
+
+  // 학생 클라이언트에서 미션 확인용
+  async function checkLiveMissions(name) {
+    if (!name) return;
+    const { data: missions } = await supabaseClient
+      .from('live_missions')
+      .select('*')
+      .eq('assigned_to', name)
+      .eq('is_read', false);
+
+    if (missions && missions.length > 0) {
+      for (const m of missions) {
+        alert(`🚨 새 미션:\n${m.mission_text}`);
+        await supabaseClient.from('live_missions').update({ is_read: true }).eq('id', m.id);
+      }
+    }
+  }
+
+  // 5초마다 미션 확인 (학생 이름이 입력된 경우)
+  setInterval(() => {
+    const name = document.getElementById('nameInput').value.trim();
+    if (name) {
+      checkLiveMissions(name);
+    }
+  }, 5000);
+
+</script>
+</body>
+</html>
